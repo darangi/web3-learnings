@@ -70,6 +70,13 @@ contract Ico is Ownable {
       _;
     }
 
+    modifier isWithinPhaseLimit(uint amount) {
+      if (currentPhase != Phase.open && getPhaseContribution(currentPhase) + amount > phaseGoal[currentPhase]) {
+        revert("PHASE_GOAL_LIMIT_EXCEEDED");
+      }
+      _;
+    }
+
     function whiteListInvestor(address investor) public onlyOwner {
       require(!whiteListedInvestors[investor], "WHITE_LISTED_ALREADY");
 
@@ -105,7 +112,7 @@ contract Ico is Ownable {
         return icoPaused;
     }
 
-    function contribute(uint256 amount) public payable icoActive isWhiteListed canContribute(amount) {
+    function contribute(uint256 amount) public payable icoActive isWhiteListed canContribute(amount) isWithinPhaseLimit(amount) {
       totalContributions += amount;
       individualContributions[msg.sender][currentPhase] += amount;
       totalIndividualContributions[msg.sender] += amount;
@@ -121,6 +128,7 @@ contract Ico is Ownable {
 
       if (phaseGoal[Phase.general] == phaseContributions[currentPhase] + phaseContributions[Phase.seed]) {
         currentPhase = Phase.open;
+        emit PhaseMoved(Phase.open);
       }
 
       emit Contributed(amount);
@@ -142,6 +150,10 @@ contract Ico is Ownable {
 
     function getTotalContributions() public view returns(uint) {
       return totalContributions;
+    }
+
+    function getIndividualContribution() public view returns(uint) {
+      return totalIndividualContributions[msg.sender];
     }
 
     function getPhaseContribution(Phase phase) public view returns(uint) {
