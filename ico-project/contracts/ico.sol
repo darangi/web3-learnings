@@ -89,7 +89,7 @@ contract Ico is Ownable {
       require(currentPhase == Phase.open, "ERROR: cannot withdraw tokens");
       require(totalIndividualContributions[msg.sender] > 0, "ERROR: you do not have any contributions");
 
-      uint tokens = totalIndividualContributions[msg.sender] * 5 / 1 ether;
+      uint tokens = totalIndividualContributions[msg.sender] * 5;
       token.transferToken(address(msg.sender), tokens);
       totalIndividualContributions[msg.sender] = 0;
 
