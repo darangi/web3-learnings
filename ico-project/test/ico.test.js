@@ -145,10 +145,17 @@ describe("ICO contract", function() {
   })
 
   it("Investor should withdraw their tokens", async function() {
-    const trx = await contract.connect(investor).withdraw();
+    const trx = await contract.connect(investor).withdrawTokens();
     const balance = await contract.connect(investor).getTokenBalance();
 
     expect(trx).to.emit(contract, "TokensReleased").withArgs(balance.toString());
+  })
+
+  it("Owner should withdraw contributions into treasury account", async function() {
+    await contract.withdraw();
+    const balance = await contract.getTreasuryBalance();
+
+    expect(balance).to.equal(toEther(30000));
   })
 
 })

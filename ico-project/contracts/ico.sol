@@ -85,7 +85,13 @@ contract Ico is Ownable {
       emit InvestorWhiteListed(investor);
     }
 
-    function withdraw() public {
+    function withdraw() external onlyOwner {
+      (bool sent, ) = address(_treasury).call{ value: address(this).balance }("");
+
+      require(sent, "ERROR: could not withdraw eth");
+    }
+
+    function withdrawTokens() public {
       require(currentPhase == Phase.open, "ERROR: cannot withdraw tokens");
       require(totalIndividualContributions[msg.sender] > 0, "ERROR: you do not have any contributions");
 
@@ -122,11 +128,11 @@ contract Ico is Ownable {
         icoPaused = true;
       }
 
-      if (phaseGoal[Phase.seed] == phaseContributions[currentPhase]) {
+      if (phaseGoal[Phase.seed] == getPhaseContribution(currentPhase)) {
         currentPhase = Phase.general;
       }
 
-      if (phaseGoal[Phase.general] == phaseContributions[currentPhase] + phaseContributions[Phase.seed]) {
+      if (phaseGoal[Phase.general] == getPhaseContribution(currentPhase)) {
         currentPhase = Phase.open;
         emit PhaseMoved(Phase.open);
       }
