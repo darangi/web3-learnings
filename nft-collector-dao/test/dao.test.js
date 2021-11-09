@@ -46,6 +46,16 @@ describe("Dao", async function() {
       const trx = await daoContract.connect(member).purchaseMemberShip(cost);
 
       expect(trx).to.emit(daoContract, "MemberShipPurchased").withArgs(member.address);
+
+      try {
+        await daoContract.purchaseMemberShip(cost);
+
+        assert.fail();
+      }
+      catch (ex) {
+        expect(ex).to.not.be.null;
+        expect(ex.message).to.contain("Already a member");
+      }
     });
 
     it("Should throw an error when membership is purchased with less than 1 eth", async function() {

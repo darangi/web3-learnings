@@ -66,6 +66,7 @@ contract Dao {
 
     function purchaseMemberShip(uint256 cost) public payable {
       require(cost == MEMBERSHIP_COST, "Memberhip costs 1eth");
+      require(!members[msg.sender], "Already a member");
 
       members[msg.sender] = true;
       votingPower[msg.sender]++;
