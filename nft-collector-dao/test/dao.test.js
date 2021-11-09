@@ -3,7 +3,7 @@ const { ethers, network } = require("hardhat");
 
 describe("Dao", async function() {
   const DAYS = 345600; //4 days in seconds
-  
+
   let daoContract, marketPlaceContract, member, anotherMember, otherMembers, notAmember, proposalId = 1, proposal, voteType = {
     yes: 0,
     no: 1
@@ -135,6 +135,13 @@ describe("Dao", async function() {
         expect(ex).to.not.be.null;
         expect(ex.message).to.contain("Voting ended");
       }
+    })
+
+    it("Delegate vote to another member", async function() {
+
+      const trx = await daoContract.connect(member).delegate(anotherMember.address);
+
+      expect(trx).to.emit(daoContract, "VoteDelegated").withArgs(member.address, anotherMember.address);
     })
 
     it("Allows a member to vote", async function() {

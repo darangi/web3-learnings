@@ -39,12 +39,15 @@ contract Dao {
 
     mapping(address => bool) private members;
     mapping(uint256 => Proposal) private proposals;
+    mapping(address => address) private delegates;
+    mapping(address => uint256) private votingPower;
 
     event MemberShipPurchased(address);
     event ProposalSubmitted(uint256);
     event Voted(uint256, VoteType);
     event ProposalStatus(string);
     event NFTpurchased(uint256, uint256);
+    event VoteDelegated(address, address);
 
     modifier onlyMembers () {
       require(members[msg.sender], "You need to purchase a membership for 1 eth");
@@ -52,10 +55,21 @@ contract Dao {
       _;
     }
 
+    function delegate(address account) public onlyMembers{
+      address old = delegates[msg.sender];
+      votingPower[old]--;
+      votingPower[account]++;
+      delegates[msg.sender] = account;
+
+      emit VoteDelegated(msg.sender, account);
+    }
+
     function purchaseMemberShip(uint256 cost) public payable {
       require(cost == MEMBERSHIP_COST, "Memberhip costs 1eth");
 
       members[msg.sender] = true;
+      votingPower[msg.sender]++;
+      delegates[msg.sender] = msg.sender;
       totalMembers = totalMembers + 1;
 
       emit MemberShipPurchased(msg.sender);
@@ -80,11 +94,13 @@ contract Dao {
       require(!proposal.hasVoted[msg.sender], "Member voted already");
       require(block.timestamp < proposal.createdAt + VOTING_DEADLINE, "Voting ended");
 
+      uint256 weight = votingPower[msg.sender];
+
       if(vote == VoteType.Yes) {
-        proposal.yays = proposal.yays + 1;
+        proposal.yays = proposal.yays + weight;
       }
       else {
-        proposal.nays = proposal.nays + 1;
+        proposal.nays = proposal.nays + weight;
       }
 
       proposal.hasVoted[msg.sender] = true;
