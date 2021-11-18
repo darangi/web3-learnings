@@ -2,10 +2,17 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./coin.sol";
 
+interface IKudiCoin is IERC20 {
+  function transferToken(address to, uint256 amount) external returns(bool);
+}
+
 contract Ico is Ownable {
+    IKudiCoin kudiCoin;
+
     bool private icoPaused = false;
 
     KudiCoin private token;
@@ -33,8 +40,8 @@ contract Ico is Ownable {
     event PhaseMoved(Phase phase);
     event TokensReleased(uint amount);
 
-    constructor(address treasury) {
-      token = new KudiCoin(treasury);
+    constructor(address kdc) {
+      kudiCoin = IKudiCoin(kdc);
 
       phaseGoal[Phase.seed] = 15000 ether;
       phaseGoal[Phase.general] = 30000 ether;
@@ -85,7 +92,7 @@ contract Ico is Ownable {
       emit InvestorWhiteListed(investor);
     }
 
-    function withdraw() external onlyOwner {
+    function withdraw(address _treasury) external onlyOwner {
       (bool sent, ) = address(_treasury).call{ value: address(this).balance }("");
 
       require(sent, "ERROR: could not withdraw eth");
@@ -96,7 +103,7 @@ contract Ico is Ownable {
       require(totalIndividualContributions[msg.sender] > 0, "ERROR: you do not have any contributions");
 
       uint tokens = totalIndividualContributions[msg.sender] * 5;
-      token.transferToken(address(msg.sender), tokens);
+      kudiCoin.transferToken(address(msg.sender), tokens);
       totalIndividualContributions[msg.sender] = 0;
 
       emit TokensReleased(tokens);
@@ -111,7 +118,7 @@ contract Ico is Ownable {
     }
 
     function getTokenBalance() public view returns (uint) {
-        return token.balanceOf(msg.sender);
+        return kudiCoin.balanceOf(msg.sender);
     }
 
     function getFundingStatus() public view onlyOwner returns (bool) {
