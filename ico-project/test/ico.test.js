@@ -11,19 +11,20 @@ const Phase = {
 describe("ICO contract", function() {
   let contract, owner, treasury, investor, anotherInvestor, accounts;
 
-  it("Should have a default phase as seed", async function() {
+  before(async function() {
     [owner, treasury, investor, anotherInvestor, ...accounts] = await ethers.getSigners();
     const Ico = await ethers.getContractFactory("Ico");
-
     contract = await Ico.deploy(treasury.address);
+  })
 
+  it("Should have a default phase as seed", async function() {
     expect(await contract.getCurrentPhase()).to.equal(Phase.seed);
   });
 
   it("Should throw an error when a non-whitlested investore tries to contribute", async function() {
     try {
       const amount = toEther(1500);
-      await contract.connect(investor).contribute(amount);
+      await contract.connect(investor).contribute({ value: amount });
 
       assert.fail();
     }
@@ -75,7 +76,7 @@ describe("ICO contract", function() {
 
   it("Should allow a whitelisted investor contribute", async function() {
     const amount = toEther(1500)
-    const trx = await contract.connect(investor).contribute(amount);
+    const trx = await contract.connect(investor).contribute({ value: amount });
 
     const contributions = await contract.getTotalContributions();
 
@@ -87,10 +88,10 @@ describe("ICO contract", function() {
     try {
       await contract.whiteListInvestor(anotherInvestor.address);
 
-      await contract.connect(anotherInvestor).contribute(toEther(500));
-      await contract.connect(anotherInvestor).contribute(toEther(500));
-      await contract.connect(anotherInvestor).contribute(toEther(500));
-      await contract.connect(anotherInvestor).contribute(toEther(500));
+      await contract.connect(anotherInvestor).contribute({ value: toEther(500) });
+      await contract.connect(anotherInvestor).contribute({ value: toEther(500) });
+      await contract.connect(anotherInvestor).contribute({ value: toEther(500) });
+      await contract.connect(anotherInvestor).contribute({ value: toEther(500) });
 
       assert.fail();
     }
@@ -104,8 +105,8 @@ describe("ICO contract", function() {
     try {
       await contract.movePhase(Phase.general);
 
-      await contract.connect(investor).contribute(toEther(1000));
-      await contract.connect(investor).contribute(toEther(500));
+      await contract.connect(investor).contribute({ value: toEther(1000) });
+      await contract.connect(investor).contribute({ value: toEther(500) });
       assert.fail();
     }
     catch (ex) {
@@ -121,7 +122,7 @@ describe("ICO contract", function() {
       //and will throw an error
       for (const account of accounts) {
         await contract.whiteListInvestor(account.address);
-        await contract.connect(account).contribute(toEther(1500));
+        await contract.connect(account).contribute({ value: toEther(1500) });
       }
 
     }
@@ -135,7 +136,7 @@ describe("ICO contract", function() {
       //it will definetly exceed the current contributions 1000 * about 16 accounts
       //and will throw an error
       for (const account of accounts.reverse()) {
-        await contract.connect(account).contribute(toEther(1000));
+        await contract.connect(account).contribute({ value: toEther(1000) });
       }
 
     }
@@ -152,7 +153,7 @@ describe("ICO contract", function() {
   })
 
   it("Owner should withdraw contributions into treasury account", async function() {
-    await contract.withdraw();
+    await contract.withdraw(treasury.address);
     const balance = await contract.getTreasuryBalance();
 
     expect(balance).to.equal(toEther(30000));

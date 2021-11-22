@@ -3,19 +3,13 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "hardhat/console.sol";
 
 import "./coin.sol";
 
-interface IKudiCoin is IERC20 {
-  function transferToken(address to, uint256 amount) external returns(bool);
-}
-
-contract Ico is Ownable {
-    IKudiCoin kudiCoin;
+contract Ico is KudiCoin {
 
     bool private icoPaused = false;
-
-    KudiCoin private token;
 
     enum Phase {
       seed,
@@ -40,9 +34,7 @@ contract Ico is Ownable {
     event PhaseMoved(Phase phase);
     event TokensReleased(uint amount);
 
-    constructor(address kdc) {
-      kudiCoin = IKudiCoin(kdc);
-
+    constructor(address treasury) KudiCoin(treasury) {
       phaseGoal[Phase.seed] = 15000 ether;
       phaseGoal[Phase.general] = 30000 ether;
       individualLimit[Phase.seed] = 1500 ether;
@@ -70,15 +62,15 @@ contract Ico is Ownable {
       _;
     }
 
-    modifier canContribute(uint amount) {
-      if (currentPhase != Phase.open && individualContributions[msg.sender][currentPhase] + amount > individualLimit[currentPhase]) {
+    modifier canContribute() {
+      if (currentPhase != Phase.open && individualContributions[msg.sender][currentPhase] + msg.value > individualLimit[currentPhase]) {
         revert("INDIVIDUAL_LIMIT_EXCEEDED");
       }
       _;
     }
 
-    modifier isWithinPhaseLimit(uint amount) {
-      if (currentPhase != Phase.open && getPhaseContribution(currentPhase) + amount > phaseGoal[currentPhase]) {
+    modifier isWithinPhaseLimit() {
+      if (currentPhase != Phase.open && getPhaseContribution(currentPhase) + msg.value > phaseGoal[currentPhase]) {
         revert("PHASE_GOAL_LIMIT_EXCEEDED");
       }
       _;
@@ -93,7 +85,7 @@ contract Ico is Ownable {
     }
 
     function withdraw(address _treasury) external onlyOwner {
-      (bool sent, ) = address(_treasury).call{ value: address(this).balance }("");
+      (bool sent, ) = address(_treasury).call{ value: owner().balance }("");
 
       require(sent, "ERROR: could not withdraw eth");
     }
@@ -103,8 +95,8 @@ contract Ico is Ownable {
       require(totalIndividualContributions[msg.sender] > 0, "ERROR: you do not have any contributions");
 
       uint tokens = totalIndividualContributions[msg.sender] * 5;
-      kudiCoin.transferToken(address(msg.sender), tokens);
       totalIndividualContributions[msg.sender] = 0;
+      transferToken(address(msg.sender), tokens);
 
       emit TokensReleased(tokens);
     }
@@ -118,18 +110,18 @@ contract Ico is Ownable {
     }
 
     function getTokenBalance() public view returns (uint) {
-        return kudiCoin.balanceOf(msg.sender);
+        return balanceOf(msg.sender);
     }
 
     function getFundingStatus() public view onlyOwner returns (bool) {
         return icoPaused;
     }
 
-    function contribute(uint256 amount) public payable icoActive isWhiteListed canContribute(amount) isWithinPhaseLimit(amount) {
-      totalContributions += amount;
-      individualContributions[msg.sender][currentPhase] += amount;
-      totalIndividualContributions[msg.sender] += amount;
-      phaseContributions[currentPhase] += amount;
+    function contribute() external payable icoActive isWhiteListed canContribute isWithinPhaseLimit {
+      totalContributions += msg.value;
+      individualContributions[msg.sender][currentPhase] += msg.value;
+      totalIndividualContributions[msg.sender] += msg.value;
+      phaseContributions[currentPhase] += msg.value;
 
       if (totalContributions == goal) {
         icoPaused = true;
@@ -144,7 +136,7 @@ contract Ico is Ownable {
         emit PhaseMoved(Phase.open);
       }
 
-      emit Contributed(amount);
+      emit Contributed(msg.value);
     }
 
     function movePhase(Phase nextPhase) public onlyOwner onlyFoward(nextPhase) {

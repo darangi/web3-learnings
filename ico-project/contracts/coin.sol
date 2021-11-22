@@ -4,31 +4,40 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract KudiCoin is ERC20, Ownable {
     bool private _deductTax = false;
-    address private _treasury;
+    address public _treasury;
 
     constructor(address treasury) ERC20("KudiCoin", "KDC") {
        _treasury = treasury;
-       _mint(msg.sender, 500000 ether);
+       _mint(address(this), 500000 ether);
     }
 
     event TaxDeductionStatus(bool status);
 
-    function transferToken(address to, uint256 amount) public {
+    function transferToken(address to, uint256 amount) public returns(bool) {
       if (_deductTax) {
         uint tax = amount * 2/100;
-        transfer(to, amount - tax);
-        transfer(_treasury, tax);
+        _transfer(address(this), to, amount - tax);
+        _transfer(address(this), _treasury, tax);
       }
       else {
-        transfer(to, amount);
+        _transfer(address(this), to, amount);
       }
+
+      return true;
     }
 
-    function toggleTaxDeduction() public onlyOwner {
-      _deductTax = !_deductTax;
+    function taxDeductionOn() public onlyOwner {
+      _deductTax = true;
+
+      emit TaxDeductionStatus(_deductTax);
+    }
+
+    function taxDeductionFalse() public onlyOwner {
+      _deductTax = false;
 
       emit TaxDeductionStatus(_deductTax);
     }
