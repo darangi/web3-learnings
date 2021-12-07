@@ -8,13 +8,17 @@ const Phase = {
   general: 1,
   open: 2,
 }
+
 describe("ICO contract", function() {
-  let contract, owner, treasury, investor, anotherInvestor, accounts;
+  let contract, owner, treasury, investor, anotherInvestor, accounts, liquidityPool;
 
   before(async function() {
     [owner, treasury, investor, anotherInvestor, ...accounts] = await ethers.getSigners();
     const Ico = await ethers.getContractFactory("Ico");
     contract = await Ico.deploy(treasury.address);
+
+    const Liquidity = await ethers.getContractFactory("Liquidity");
+    liquidityPool = await Liquidity.deploy(contract.address);
   })
 
   it("Should have a default phase as seed", async function() {
@@ -152,11 +156,72 @@ describe("ICO contract", function() {
     expect(trx).to.emit(contract, "TokensReleased").withArgs(balance.toString());
   })
 
-  it("Owner should withdraw contributions into treasury account", async function() {
-    await contract.withdraw(treasury.address);
-    const balance = await contract.getTreasuryBalance();
+  describe("Router + Liquidity pool", () => {
+    before(async () => {
+      Router = await ethers.getContractFactory("Router");
+      router = await Router.deploy(contract.address, liquidityPool.address);
+    })
 
-    expect(balance).to.equal(toEther(30000));
+    it("Move invested funds to liquidity pool", async function() {
+      expect((await liquidityPool.balanceOf(liquidityPool.address))).to.equal(0);
+
+      await contract.moveInvestedEthToLiquidityPool(liquidityPool.address);
+      const balance = await liquidityPool.balanceOf(liquidityPool.address);
+
+      expect(+balance.toString()).to.be.greaterThan(0);
+    })
+
+    it("Add liquidity", async function() {
+      let balance = await liquidityPool.connect(investor).getTokenBalance();
+      expect(+balance.toString()).to.equal(0);
+
+      router.connect(investor).addLiquidity(toEther(10), { value: toEther(2) });
+
+      balance = await liquidityPool.connect(investor).getTokenBalance();
+      expect(+balance.toString()).to.be.greaterThan(0);
+    })
+
+    it("Swaps eth for KudiCoin", async () => {
+      let currentBalance = await contract.connect(investor).getTokenBalance();
+
+      await router.connect(investor).trade(0, { value: toEther(3) });
+
+      let newBalance = await contract.connect(investor).getTokenBalance();
+
+      expect(+newBalance.toString()).to.be.greaterThan(+currentBalance.toString());
+    })
+
+    it("Swaps KudiCoin for eth", async () => {
+      let currentBalance = await ethers.provider.getBalance(investor.address);
+
+      await router.connect(investor).trade(toEther(12));
+
+      let newBalance = await ethers.provider.getBalance(investor.address);
+
+      expect(+newBalance.toString()).to.be.greaterThan(+currentBalance.toString());
+    })
+
+    it("Remove liquidity", async function() {
+      let balance = await liquidityPool.connect(investor).getTokenBalance();
+      expect(+balance.toString()).to.be.greaterThan(0);
+
+      router.connect(investor).removeLiquidity();
+
+      balance = await liquidityPool.connect(investor).getTokenBalance();
+      expect(+balance.toString()).to.be.eq(0);
+    })
+
+    // it("Accepts trade with a 1% fee and it gets shared by the liquidity providers", async () => {
+    //   await router.connect(anotherInvestor).trade(0, { value: toEther(3) });
+    //
+    //   let currentKdcBalance = await contract.connect(investor).getTokenBalance();
+    //   let currentEthBalance = await ethers.provider.getBalance(investor.address);
+    //
+    //   await router.connect(investor).removeLiquidity();
+    //
+    //   let newKdcBalance = await contract.connect(investor).getTokenBalance();
+    //   let newEthBalance = await ethers.provider.getBalance(investor.address);
+    // })
   })
 
 })

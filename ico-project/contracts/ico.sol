@@ -6,6 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
 import "./coin.sol";
+import "./liquidity-pool.sol";
+
+interface ILiquidityPool {
+    function deposit(uint256 kdc, address account) external payable;
+}
 
 contract Ico is KudiCoin {
 
@@ -84,10 +89,14 @@ contract Ico is KudiCoin {
       emit InvestorWhiteListed(investor);
     }
 
-    function withdraw(address _treasury) external onlyOwner {
-      (bool sent, ) = address(_treasury).call{ value: owner().balance }("");
+    function moveInvestedEthToLiquidityPool(address liquidityPool) external onlyOwner {
+      //deposit KudiCoin tokens in the liquidityPool at a 5:1 ratio
+      totalContributions = 10 ether;
+      uint256 tokens = totalContributions * 5;
 
-      require(sent, "ERROR: could not withdraw eth");
+      transferToken(liquidityPool, tokens);
+
+      ILiquidityPool(liquidityPool).deposit{value: totalContributions}(tokens, liquidityPool);
     }
 
     function withdrawTokens() public {

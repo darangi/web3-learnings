@@ -30,6 +30,12 @@ contract KudiCoin is ERC20, Ownable {
       return true;
     }
 
+    function increaseAllowance(address _owner, address _spender, uint256 _amount) external returns (bool) {
+        _approve(_owner, _spender, allowance(_owner, _spender) + _amount);
+
+        return true;
+    }
+
     function taxDeductionOn() public onlyOwner {
       _deductTax = true;
 
